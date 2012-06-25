@@ -79,7 +79,7 @@ e_modapi_init(E_Module *m)
    e_configure_registry_category_add("advanced", 80, "Advanced",
                                      NULL, "enlightenment/advanced");
    /* add right-side item */
-   e_configure_registry_item_add("advanced/HOHO", 110, "HOHO",
+   e_configure_registry_item_add("advanced/HOHO", 110, D_("HOHOHO"),
                                  NULL, buf, e_int_config_HOHO_module);
 
    /* Define EET Data Storage for the config file */

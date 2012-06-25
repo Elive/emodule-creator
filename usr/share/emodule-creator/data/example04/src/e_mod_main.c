@@ -430,6 +430,8 @@ _HOHO_cb_mouse_down(void *data, Evas *evas, Evas_Object *obj, void *event)
         e_menu_post_deactivate_callback_set(m, _HOHO_cb_menu_post, inst);
         inst->menu = m;
 
+        e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon, &x, &y, 
+                                          NULL, NULL);
 
         /* show the menu relative to gadgets position */
         e_menu_activate_mouse(m, zone, (x + ev->output.x),

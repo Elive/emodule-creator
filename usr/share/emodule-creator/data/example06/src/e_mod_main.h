@@ -77,7 +77,7 @@ EAPI int e_modapi_shutdown(E_Module *m);
 EAPI int e_modapi_save(E_Module *m);
 
 /* Function for calling the module's Configuration Dialog */
-EAPI E_Config_Dialog *e_int_config_HOHO_module(E_Container *con);
+E_Config_Dialog *e_int_config_HOHO_module(E_Container *con, const char *params);
 
 extern Config *HOHO_conf;
 

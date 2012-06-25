@@ -1,6 +1,9 @@
 #include <e.h>
 #include "e_mod_main.h"
 
+/* The typedef for this structure is declared inside the E code in order to
+ * allow everybody to use this type, you dont need to declare the typedef, 
+ * just use the E_Config_Dialog_Data for your data structures declarations */
 struct _E_Config_Dialog_Data 
 {
    int switch1;
@@ -14,9 +17,10 @@ static Evas_Object *_basic_create(E_Config_Dialog *cfd, Evas *evas, E_Config_Dia
 static int _basic_apply(E_Config_Dialog *cfd, E_Config_Dialog_Data *cfdata);
 
 /* External Functions */
+
 /* Function for calling our personal dialog menu */
-EAPI E_Config_Dialog *
-e_int_config_HOHO_module(E_Container *con) 
+E_Config_Dialog *
+e_int_config_HOHO_module(E_Container *con, const char *params) 
 {
    E_Config_Dialog *cfd = NULL;
    E_Config_Dialog_View *v = NULL;

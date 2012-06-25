@@ -21,18 +21,20 @@ filesdir =  $(datadir)
 files_DATA = module.desktop \
 	     e-module-HOHO.edj
 
-EXTRA_DIST = $(files_DATA) \
-	     images/module_icon.png \
+EXTRA_DIST = images/module_icon.png \
+         module.desktop.in \
+	     e_modules-skel.spec.in \
 	     e-module-HOHO.edc \
 	     fonts/VeraBd.ttf
 
-e-module-HOHO.edj: $(EXTRA_DIST)
+e-module-HOHO.edj: Makefile e-module-HOHO.edc images/module_icon.png
 
 %.edj:  %.edc
 	$(EDJE_CC) $(EDJE_FLAGS) $< $@
 
 clean-local:
-	 rm -rf *.edj module.desktop *~
+	 rm -rf *.edj module.desktop e_modules-skel.spec *~
+
 uninstall:
 	 rm -rf $(DESTDIR)$(datadir)
 
