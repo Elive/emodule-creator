@@ -31,7 +31,7 @@ e-module-HOHO.edj: Makefile e-module-HOHO.edc images/module_icon.png
 	$(EDJE_CC) $(EDJE_FLAGS) $< $@
 
 clean-local:
-	 rm -rf *.edj module.desktop e_modules-skel.spec *~
+	 rm -rf *.edj module.desktop e_modules-HOHO.spec *~
 
 uninstall:
 	 rm -rf $(DESTDIR)$(datadir)

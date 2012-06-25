@@ -68,7 +68,7 @@ AC_OUTPUT([
 Makefile
 src/Makefile
 $po_makefile_in
-e_modules-skel.spec
+e_modules-HOHO.spec
 module.desktop
 ], [
 ])
