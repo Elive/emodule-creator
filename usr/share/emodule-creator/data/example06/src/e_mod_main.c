@@ -247,7 +247,7 @@ _HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi)
 {
    if (!HOHO_conf) return;
    if (HOHO_conf->cfd) return;
-   e_int_config_HOHO_module(mn->zone->container);
+   e_int_config_HOHO_module(mn->zone->container, NULL);
 }
 
 /* Launcher Exec feature */
