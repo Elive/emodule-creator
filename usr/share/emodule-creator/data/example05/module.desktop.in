@@ -1,9 +1,8 @@
-
 [Desktop Entry]
 Type=Link
-Name=HOHO
+Name=HOHOHO
 Icon=e-module-HOHO
-Comment=<hilight>HOHO Module</hilight>
+Comment=<hilight>HOHOHO Module</hilight>
 
 #Several different types available here. NEED TO DOC THESE.
-X-Enlightenment-ModuleType=system
+X-Enlightenment-ModuleType=utils

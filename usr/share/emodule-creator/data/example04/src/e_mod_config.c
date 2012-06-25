@@ -23,7 +23,7 @@ e_int_config_HOHO_module(E_Container *con)
    char buf[4096];
 
    /* is this config dialog already visible ? */
-   if (e_config_dialog_find("HOHO", "_e_module_HOHO_cfg_dlg")) return NULL;
+   if (e_config_dialog_find("HOHO", "advanced/skel")) return NULL;
 
    v = E_NEW(E_Config_Dialog_View, 1);
    if (!v) return NULL;

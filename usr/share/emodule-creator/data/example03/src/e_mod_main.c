@@ -14,7 +14,7 @@
 static E_Gadcon_Client *_gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style);
 static void _gc_shutdown(E_Gadcon_Client *gcc);
 static void _gc_orient(E_Gadcon_Client *gcc);
-static char *_gc_label(void);
+static const char *_gc_label(void);
 static Evas_Object *_gc_icon(Evas *evas);
 static const char *_gc_id_new(void);
 //static Config_Item *_config_item_get(const char *id);
@@ -76,7 +76,7 @@ struct _Instance
 };
 
 #ifdef config
-struct _Config_Item 
+struct _Config_Item
 {
    const char *id;
    int lang_selected;
@@ -159,7 +159,7 @@ _gc_orient(E_Gadcon_Client *gcc)
 }
 
 /*when module is loaded it has this name*/
-   static char *
+   static const char *
 _gc_label(void)
 {
    return ("HOHO"); /*this name shows up in Shelf contents*/
@@ -206,7 +206,7 @@ _button_cb_mouse_down(void *data, Evas *e, Evas_Object *obj, void *event_info)
 
       Evas_Coord x, y, w, h;
       int cx, cy, cw, ch;
-      evas_object_geometry_get(inst->o_button, &x, &y, &w, &h); 
+      evas_object_geometry_get(inst->o_button, &x, &y, &w, &h);
       e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon,
             &cx, &cy, &cw, &ch);
       x += cx;
@@ -330,7 +330,7 @@ _button_cb_mouse_down(void *data, Evas *e, Evas_Object *obj, void *event_info)
       Evas_Coord x, y, w, h;
       int cx, cy, cw, ch;
 
-      evas_object_geometry_get(inst->o_button, &x, &y, &w, &h); 
+      evas_object_geometry_get(inst->o_button, &x, &y, &w, &h);
       e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon,
             &cx, &cy, &cw, &ch);
       x += cx;
@@ -381,7 +381,7 @@ _menu_cb_post(void *data, E_Menu *m)
 /***************************************************************************/
 /**/
 /* module setup */
-EAPI E_Module_Api e_modapi = 
+EAPI E_Module_Api e_modapi =
 {
    E_MODULE_API_VERSION,
    "HOHO" /*another name of the module*/

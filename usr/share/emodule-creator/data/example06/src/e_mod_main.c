@@ -4,11 +4,11 @@
 /* Local Function Prototypes */
 static void _HOHO_conf_new(void);
 static void _HOHO_conf_free(void);
-static int _HOHO_conf_timer(void *data);
-static int _HOHO_del_cb(void *data, int type, void *event);
+static Eina_Bool _HOHO_conf_timer(void *data);
+static Eina_Bool _HOHO_del_cb(void *data, int type, void *event);
 static void _HOHO_cb_menu_post(void *data, E_Menu *menu);
 static void _HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi);
-extern int HOHO_launcher(void);
+extern Eina_Bool HOHO_launcher(void);
 
 /* Local Structures */
 typedef struct _Handy Handy;
@@ -20,7 +20,7 @@ struct _Handy
 };
 
 typedef struct _Instance Instance;
-struct _Instance 
+struct _Instance
 {
    /* evas_object used to display */
    Evas_Object          *o_HOHO;
@@ -29,7 +29,7 @@ struct _Instance
    E_Menu               *menu;
 };
 
-struct _E_Config_Dialog_Data 
+struct _E_Config_Dialog_Data
 {
    int enabled;
    int autodetect;
@@ -37,7 +37,6 @@ struct _E_Config_Dialog_Data
 };
 
 /* Local Variables */
-static int uuid = 0;
 static Eina_List *instances = NULL;
 static E_Config_DD *conf_edd = NULL;
 Config *HOHO_conf = NULL;
@@ -51,7 +50,7 @@ EAPI E_Module_Api e_modapi = {E_MODULE_API_VERSION, "HOHO"};
 
 /* Function called when the module is initialized */
 EAPI void *
-e_modapi_init(E_Module *m) 
+e_modapi_init(E_Module *m)
 {
    char buf[4096];
 
@@ -67,10 +66,10 @@ e_modapi_init(E_Module *m)
    /* Display this Modules config info in the main Config Panel */
 
    /* starts with a category, create it if not already exists */
-   e_configure_registry_category_add("features", 80, D_("Features"), 
+   e_configure_registry_category_add("features", 80, D_("Features"),
                                      NULL, "preferences-applications-add");
    /* add right-side item */
-   e_configure_registry_item_add("features/HOHO", 110, D_("HOHOHO"), 
+   e_configure_registry_item_add("features/HOHO", 110, D_("HOHOHO"),
                                  NULL, buf, e_int_config_HOHO_module);
 
    conf_edd = E_CONFIG_DD_NEW("Config", Config);
@@ -85,10 +84,10 @@ e_modapi_init(E_Module *m)
 
    /* Tell E to find any existing module data. First run ? */
    HOHO_conf = e_config_domain_load("module.HOHO", conf_edd);
-   if (HOHO_conf) 
+   if (HOHO_conf)
      {
         /* Check config version */
-        if ((HOHO_conf->version >> 16) < MOD_CONFIG_FILE_EPOCH) 
+        if ((HOHO_conf->version >> 16) < MOD_CONFIG_FILE_EPOCH)
           {
              /* config too old */
              _HOHO_conf_free();
@@ -108,11 +107,11 @@ e_modapi_init(E_Module *m)
           }
 
         /* Ardvarks */
-        else if (HOHO_conf->version > MOD_CONFIG_FILE_VERSION) 
+        else if (HOHO_conf->version > MOD_CONFIG_FILE_VERSION)
           {
              /* config too new...wtf ? */
              _HOHO_conf_free();
-	     ecore_timer_add(1.0, _HOHO_conf_timer, 
+	     ecore_timer_add(1.0, _HOHO_conf_timer,
 			     "Your HOHO Module configuration is NEWER "
 			     "than the module version. This is "
 			     "very<br>strange. This should not happen unless"
@@ -126,7 +125,7 @@ e_modapi_init(E_Module *m)
           }
      }
 
-   /* if we don't have a config yet, or it got erased above, 
+   /* if we don't have a config yet, or it got erased above,
     * then create a default one */
    if (!HOHO_conf) _HOHO_conf_new();
 
@@ -145,8 +144,8 @@ e_modapi_init(E_Module *m)
 /*
  * Function to unload the module
  */
-EAPI int 
-e_modapi_shutdown(E_Module *m) 
+EAPI int
+e_modapi_shutdown(E_Module *m)
 {
    /* Unregister the config dialog from the main panel */
    e_configure_registry_item_del("features/HOHO");
@@ -177,9 +176,9 @@ e_modapi_shutdown(E_Module *m)
 
 /*
  * Function to Save the modules config
- */ 
-EAPI int 
-e_modapi_save(E_Module *m) 
+ */
+EAPI int
+e_modapi_save(E_Module *m)
 {
    e_config_domain_save("module.HOHO", conf_edd, HOHO_conf);
    return 1;
@@ -187,8 +186,8 @@ e_modapi_save(E_Module *m)
 
 /* Local Functions */
 /* new module needs a new config :), or config too old and we need one anyway */
-static void 
-_HOHO_conf_new(void) 
+static void
+_HOHO_conf_new(void)
 {
    char buf[128];
 
@@ -216,23 +215,23 @@ _HOHO_conf_new(void)
 
 /* This is called when we need to cleanup the actual configuration,
  * for example when our configuration is too old */
-static void 
-_HOHO_conf_free(void) 
+static void
+_HOHO_conf_free(void)
 {
    E_FREE(HOHO_conf);
 }
 
 /* timer for the config oops dialog (old configuration needs update) */
-static int 
-_HOHO_conf_timer(void *data) 
+static Eina_Bool
+_HOHO_conf_timer(void *data)
 {
-   e_util_dialog_show( D_("HOHOHO Configuration Updated"), data);
-   return 0;
+   e_util_dialog_internal( D_("HOHOHO Configuration Updated"), data);
+   return EINA_FALSE;
 }
 
 /* popup menu closing, cleanup */
-static void 
-_HOHO_cb_menu_post(void *data, E_Menu *menu) 
+static void
+_HOHO_cb_menu_post(void *data, E_Menu *menu)
 {
    Instance *inst = NULL;
 
@@ -243,8 +242,8 @@ _HOHO_cb_menu_post(void *data, E_Menu *menu)
 }
 
 /* call configure from popup */
-static void 
-_HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi) 
+static void
+_HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi)
 {
    if (!HOHO_conf) return;
    if (HOHO_conf->cfd) return;
@@ -252,7 +251,7 @@ _HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi)
 }
 
 /* Launcher Exec feature */
-static int
+static Eina_Bool
 _HOHO_exec()
 {
    char launcher[4096];
@@ -263,7 +262,7 @@ _HOHO_exec()
 
 /* Launcher autodetect */
 /* function called when the HOHO checker command has finished */
-static int
+static Eina_Bool
 _HOHO_del_cb(void *data, int type, void *event)
 {
    Ecore_Exe_Event_Del *ev;
@@ -301,7 +300,7 @@ HOHO_launcher(void)
    m = e_module_find("systray");
    if (! ((m) && (e_module_enabled_get(m))))
    {
-      e_util_dialog_show( D_("Systray Not Found"), D_("HOHOHO depends of the systray module, you need<br>to enable that module first and have it visually on your desktop"));
+      e_util_dialog_internal( D_("Systray Not Found"), D_("HOHOHO depends of the systray module, you need<br>to enable that module first and have it visually on your desktop"));
       return ECORE_CALLBACK_CANCEL; // 0
    } // FIXME: Do you need this check ?
 

@@ -5,13 +5,13 @@
 static E_Gadcon_Client *_gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style);
 static void _gc_shutdown(E_Gadcon_Client *gcc);
 static void _gc_orient(E_Gadcon_Client *gcc, E_Gadcon_Orient orient);
-static char *_gc_label(E_Gadcon_Client_Class *client_class);
+static const char *_gc_label(E_Gadcon_Client_Class *client_class);
 static const char *_gc_id_new(E_Gadcon_Client_Class *client_class);
 static Evas_Object *_gc_icon(E_Gadcon_Client_Class *client_class, Evas *evas);
 
 static void _HOHO_conf_new(void);
 static void _HOHO_conf_free(void);
-static int _HOHO_conf_timer(void *data);
+static Eina_Bool _HOHO_conf_timer(void *data);
 static Config_Item *_HOHO_conf_item_get(const char *id);
 static void _HOHO_cb_mouse_down(void *data, Evas *evas, Evas_Object *obj, void *event);
 static void _HOHO_cb_menu_post(void *data, E_Menu *menu);
@@ -19,7 +19,7 @@ static void _HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi);
 
 /* Local Structures */
 typedef struct _Instance Instance;
-struct _Instance 
+struct _Instance
 {
    /* An instance of our item (module) with its elements */
 
@@ -37,16 +37,15 @@ struct _Instance
 };
 
 /* Local Variables */
-static int uuid = 0;
 static Eina_List *instances = NULL;
 static E_Config_DD *conf_edd = NULL;
 static E_Config_DD *conf_item_edd = NULL;
 Config *HOHO_conf = NULL;
 
-static const E_Gadcon_Client_Class _gc_class = 
+static const E_Gadcon_Client_Class _gc_class =
 {
-   GADCON_CLIENT_CLASS_VERSION, "HOHO", 
-     {_gc_init, _gc_shutdown, _gc_orient, _gc_label, _gc_icon, 
+   GADCON_CLIENT_CLASS_VERSION, "HOHO",
+     {_gc_init, _gc_shutdown, _gc_orient, _gc_label, _gc_icon,
           _gc_id_new, NULL, NULL},
    E_GADCON_CLIENT_STYLE_PLAIN
 };
@@ -60,7 +59,7 @@ EAPI E_Module_Api e_modapi = {E_MODULE_API_VERSION, "HOHO"};
 
 /* Function called when the module is initialized */
 EAPI void *
-e_modapi_init(E_Module *m) 
+e_modapi_init(E_Module *m)
 {
    char buf[4096];
 
@@ -76,10 +75,10 @@ e_modapi_init(E_Module *m)
    /* Display this Modules config info in the main Config Panel */
 
    /* starts with a category, create it if not already exists */
-   e_configure_registry_category_add("advanced", 80, D_("Advanced"), 
+   e_configure_registry_category_add("advanced", 80, D_("Advanced"),
                                      NULL, "preferences-advanced");
    /* add right-side item */
-   e_configure_registry_item_add("advanced/HOHO", 110, D_("HOHOHO"), 
+   e_configure_registry_item_add("advanced/HOHO", 110, D_("HOHOHO"),
                                  NULL, buf, e_int_config_HOHO_module);
 
    /* Define EET Data Storage for the config file */
@@ -102,10 +101,10 @@ e_modapi_init(E_Module *m)
 
    /* Tell E to find any existing module data. First run ? */
    HOHO_conf = e_config_domain_load("module.HOHO", conf_edd);
-   if (HOHO_conf) 
+   if (HOHO_conf)
      {
         /* Check config version */
-        if ((HOHO_conf->version >> 16) < MOD_CONFIG_FILE_EPOCH) 
+        if ((HOHO_conf->version >> 16) < MOD_CONFIG_FILE_EPOCH)
           {
              /* config too old */
              _HOHO_conf_free();
@@ -125,11 +124,11 @@ e_modapi_init(E_Module *m)
           }
 
         /* Ardvarks */
-        else if (HOHO_conf->version > MOD_CONFIG_FILE_VERSION) 
+        else if (HOHO_conf->version > MOD_CONFIG_FILE_VERSION)
           {
              /* config too new...wtf ? */
              _HOHO_conf_free();
-	     ecore_timer_add(1.0, _HOHO_conf_timer, 
+	     ecore_timer_add(1.0, _HOHO_conf_timer,
 			     "Your HOHO Module configuration is NEWER "
 			     "than the module version. This is "
 			     "very<br>strange. This should not happen unless"
@@ -143,7 +142,7 @@ e_modapi_init(E_Module *m)
           }
      }
 
-   /* if we don't have a config yet, or it got erased above, 
+   /* if we don't have a config yet, or it got erased above,
     * then create a default one */
    if (!HOHO_conf) _HOHO_conf_new();
 
@@ -162,8 +161,8 @@ e_modapi_init(E_Module *m)
 /*
  * Function to unload the module
  */
-EAPI int 
-e_modapi_shutdown(E_Module *m) 
+EAPI int
+e_modapi_shutdown(E_Module *m)
 {
    /* Unregister the config dialog from the main panel */
    e_configure_registry_item_del("advanced/HOHO");
@@ -181,15 +180,15 @@ e_modapi_shutdown(E_Module *m)
    e_gadcon_provider_unregister(&_gc_class);
 
    /* Cleanup our item list */
-   while (HOHO_conf->conf_items) 
+   while (HOHO_conf->conf_items)
      {
         Config_Item *ci = NULL;
 
         /* Grab an item from the list */
         ci = HOHO_conf->conf_items->data;
         /* remove it */
-        HOHO_conf->conf_items = 
-          eina_list_remove_list(HOHO_conf->conf_items, 
+        HOHO_conf->conf_items =
+          eina_list_remove_list(HOHO_conf->conf_items,
                                 HOHO_conf->conf_items);
         /* cleanup stringshares */
         if (ci->id) eina_stringshare_del(ci->id);
@@ -209,9 +208,9 @@ e_modapi_shutdown(E_Module *m)
 
 /*
  * Function to Save the modules config
- */ 
-EAPI int 
-e_modapi_save(E_Module *m) 
+ */
+EAPI int
+e_modapi_save(E_Module *m)
 {
    e_config_domain_save("module.HOHO", conf_edd, HOHO_conf);
    return 1;
@@ -221,13 +220,13 @@ e_modapi_save(E_Module *m)
 
 /* Called when Gadget Controller (gadcon) says to appear in scene */
 static E_Gadcon_Client *
-_gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style) 
+_gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style)
 {
    Instance *inst = NULL;
    char buf[4096];
 
    /* theme file */
-   snprintf(buf, sizeof(buf), "%s/e-module-HOHO.edj", 
+   snprintf(buf, sizeof(buf), "%s/e-module-HOHO.edj",
             HOHO_conf->module->dir);
 
    /* New visual instance, any config ? */
@@ -237,7 +236,7 @@ _gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style)
    /* create on-screen object */
    inst->o_HOHO = edje_object_add(gc->evas);
    /* we have a theme ? */
-   if (!e_theme_edje_object_set(inst->o_HOHO, "base/theme/modules/HOHO", 
+   if (!e_theme_edje_object_set(inst->o_HOHO, "base/theme/modules/HOHO",
                                 "modules/HOHO/main"))
      edje_object_file_set(inst->o_HOHO, buf, "modules/HOHO/main");
 
@@ -246,7 +245,7 @@ _gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style)
    inst->gcc->data = inst;
 
    /* hook a mouse down. we want/have a popup menu, right ? */
-   evas_object_event_callback_add(inst->o_HOHO, EVAS_CALLBACK_MOUSE_DOWN, 
+   evas_object_event_callback_add(inst->o_HOHO, EVAS_CALLBACK_MOUSE_DOWN,
                                   _HOHO_cb_mouse_down, inst);
 
    /* add to list of running instances so we can cleanup later */
@@ -257,8 +256,8 @@ _gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style)
 }
 
 /* Called when Gadget_Container says stop */
-static void 
-_gc_shutdown(E_Gadcon_Client *gcc) 
+static void
+_gc_shutdown(E_Gadcon_Client *gcc)
 {
    Instance *inst = NULL;
 
@@ -266,17 +265,17 @@ _gc_shutdown(E_Gadcon_Client *gcc)
    instances = eina_list_remove(instances, inst);
 
    /* kill popup menu */
-   if (inst->menu) 
+   if (inst->menu)
      {
         e_menu_post_deactivate_callback_set(inst->menu, NULL, NULL);
         e_object_del(E_OBJECT(inst->menu));
         inst->menu = NULL;
      }
    /* delete the visual */
-   if (inst->o_HOHO) 
+   if (inst->o_HOHO)
      {
         /* remove mouse down callback hook */
-        evas_object_event_callback_del(inst->o_HOHO, EVAS_CALLBACK_MOUSE_DOWN, 
+        evas_object_event_callback_del(inst->o_HOHO, EVAS_CALLBACK_MOUSE_DOWN,
                                        _HOHO_cb_mouse_down);
         evas_object_del(inst->o_HOHO);
      }
@@ -284,23 +283,23 @@ _gc_shutdown(E_Gadcon_Client *gcc)
 }
 
 /* For when container says we are changing position */
-static void 
-_gc_orient(E_Gadcon_Client *gcc, E_Gadcon_Orient orient) 
+static void
+_gc_orient(E_Gadcon_Client *gcc, E_Gadcon_Orient orient)
 {
    e_gadcon_client_aspect_set(gcc, 16, 16);
    e_gadcon_client_min_size_set(gcc, 16, 16);
 }
 
 /* Gadget/Module label, name for our module */
-static char *
-_gc_label(E_Gadcon_Client_Class *client_class) 
+static const char *
+_gc_label(E_Gadcon_Client_Class *client_class)
 {
    return D_("HOHO");
 }
 
 /* so E can keep a unique instance per-container */
 static const char *
-_gc_id_new(E_Gadcon_Client_Class *client_class) 
+_gc_id_new(E_Gadcon_Client_Class *client_class)
 {
    Config_Item *ci = NULL;
 
@@ -309,7 +308,7 @@ _gc_id_new(E_Gadcon_Client_Class *client_class)
 }
 
 static Evas_Object *
-_gc_icon(E_Gadcon_Client_Class *client_class, Evas *evas) 
+_gc_icon(E_Gadcon_Client_Class *client_class, Evas *evas)
 {
    Evas_Object *o = NULL;
    char buf[4096];
@@ -327,8 +326,8 @@ _gc_icon(E_Gadcon_Client_Class *client_class, Evas *evas)
 }
 
 /* new module needs a new config :), or config too old and we need one anyway */
-static void 
-_HOHO_conf_new(void) 
+static void
+_HOHO_conf_new(void)
 {
    Config_Item *ci = NULL;
    char buf[128];
@@ -356,17 +355,17 @@ _HOHO_conf_new(void)
 
 /* This is called when we need to cleanup the actual configuration,
  * for example when our configuration is too old */
-static void 
-_HOHO_conf_free(void) 
+static void
+_HOHO_conf_free(void)
 {
    /* cleanup any stringshares here */
-   while (HOHO_conf->conf_items) 
+   while (HOHO_conf->conf_items)
      {
         Config_Item *ci = NULL;
 
         ci = HOHO_conf->conf_items->data;
-        HOHO_conf->conf_items = 
-          eina_list_remove_list(HOHO_conf->conf_items, 
+        HOHO_conf->conf_items =
+          eina_list_remove_list(HOHO_conf->conf_items,
                                 HOHO_conf->conf_items);
         /* EPA */
         if (ci->id) eina_stringshare_del(ci->id);
@@ -377,36 +376,22 @@ _HOHO_conf_free(void)
 }
 
 /* timer for the config oops dialog (old configuration needs update) */
-static int 
-_HOHO_conf_timer(void *data) 
+static Eina_Bool
+_HOHO_conf_timer(void *data)
 {
-   e_util_dialog_show( D_("HOHO Configuration Updated"), data);
-   return 0;
+   e_util_dialog_internal( D_("HOHO Configuration Updated"), data);
+   return EINA_FALSE;
 }
 
 /* function to search for any Config_Item struct for this Item
  * create if needed */
 static Config_Item *
-_HOHO_conf_item_get(const char *id) 
+_HOHO_conf_item_get(const char *id)
 {
-   Eina_List *l = NULL;
-   Config_Item *ci = NULL;
-   char buf[128];
+   Config_Item *ci;
 
-   if (!id) 
-     {
-        /* nothing passed, return a new id */
-        snprintf(buf, sizeof(buf), "%s.%d", _gc_class.name, ++uuid);
-        id = buf;
-     }
-   else 
-     {
-        for (l = HOHO_conf->conf_items; l; l = l->next) 
-          {
-             if (!(ci = l->data)) continue;
-             if ((ci->id) && (!strcmp(ci->id, id))) return ci;
-          }
-     }
+   GADCON_CLIENT_CONFIG_GET(Config_Item, HOHO_conf->conf_items, _gc_class, id);
+
    ci = E_NEW(Config_Item, 1);
    ci->id = eina_stringshare_add(id);
    ci->switch2 = 0;
@@ -415,8 +400,8 @@ _HOHO_conf_item_get(const char *id)
 }
 
 /* Pants On */
-static void 
-_HOHO_cb_mouse_down(void *data, Evas *evas, Evas_Object *obj, void *event) 
+static void
+_HOHO_cb_mouse_down(void *data, Evas *evas, Evas_Object *obj, void *event)
 {
    Instance *inst = NULL;
    Evas_Event_Mouse_Down *ev;
@@ -426,41 +411,38 @@ _HOHO_cb_mouse_down(void *data, Evas *evas, Evas_Object *obj, void *event)
 
    if (!(inst = data)) return;
    ev = event;
-   if ((ev->button == 3) && (!inst->menu)) 
+   if ((ev->button == 3) && (!inst->menu))
      {
+        E_Menu *m;
+
         /* grab current zone */
         zone = e_util_zone_current_get(e_manager_current_get());
 
         /* create popup menu */
-        inst->menu = e_menu_new();
-        e_menu_post_deactivate_callback_set(inst->menu, _HOHO_cb_menu_post, 
-                                            inst);
-
-        mi = e_menu_item_new(inst->menu);
-        e_menu_item_label_set(mi, D_("Configuration"));
-        e_util_menu_item_edje_icon_set(mi, "enlightenment/configuration");
+        m = e_menu_new();
+        mi = e_menu_item_new(m);
+        e_menu_item_label_set(mi, D_("Settings"));
+        e_util_menu_item_theme_icon_set(mi, "preferences-system");
         e_menu_item_callback_set(mi, _HOHO_cb_menu_configure, NULL);
 
-        mi = e_menu_item_new(inst->menu);
-        e_menu_item_separator_set(mi, 1);
-
         /* Each Gadget Client has a utility menu from the Container */
-        e_gadcon_client_util_menu_items_append(inst->gcc, inst->menu, 0);
-        e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon, &x, &y, 
-                                          NULL, NULL);
+        m = e_gadcon_client_util_menu_items_append(inst->gcc, m, 0);
+        e_menu_post_deactivate_callback_set(m, _HOHO_cb_menu_post, inst);
+        inst->menu = m;
+
 
         /* show the menu relative to gadgets position */
-        e_menu_activate_mouse(inst->menu, zone, (x + ev->output.x), 
-                              (y + ev->output.y), 1, 1, 
+        e_menu_activate_mouse(m, zone, (x + ev->output.x),
+                              (y + ev->output.y), 1, 1,
                               E_MENU_POP_DIRECTION_AUTO, ev->timestamp);
-        evas_event_feed_mouse_up(inst->gcc->gadcon->evas, ev->button, 
+        evas_event_feed_mouse_up(inst->gcc->gadcon->evas, ev->button,
                                  EVAS_BUTTON_NONE, ev->timestamp, NULL);
      }
 }
 
 /* popup menu closing, cleanup */
-static void 
-_HOHO_cb_menu_post(void *data, E_Menu *menu) 
+static void
+_HOHO_cb_menu_post(void *data, E_Menu *menu)
 {
    Instance *inst = NULL;
 
@@ -471,8 +453,8 @@ _HOHO_cb_menu_post(void *data, E_Menu *menu)
 }
 
 /* call configure from popup */
-static void 
-_HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi) 
+static void
+_HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi)
 {
    if (!HOHO_conf) return;
    if (HOHO_conf->cfd) return;

@@ -4,13 +4,12 @@
 /* Local Function Prototypes */
 static void _HOHO_conf_new(void);
 static void _HOHO_conf_free(void);
-static int _HOHO_conf_timer(void *data);
-static int _HOHO_configure(void);
+static Eina_Bool _HOHO_conf_timer(void *data);
+static Eina_Bool _HOHO_configure(void);
 
 /* Local Structures */
 
 /* Local Variables */
-static int uuid = 0;
 static E_Config_DD *conf_edd = NULL;
 Config *HOHO_conf = NULL;
 
@@ -23,7 +22,7 @@ EAPI E_Module_Api e_modapi = {E_MODULE_API_VERSION, "HOHO"};
 
 /* Function called when the module is initialized */
 EAPI void *
-e_modapi_init(E_Module *m) 
+e_modapi_init(E_Module *m)
 {
    char buf[4096];
 
@@ -39,10 +38,10 @@ e_modapi_init(E_Module *m)
    /* Display this Modules config info in the main Config Panel */
 
    /* starts with a category, create it if not already exists */
-   e_configure_registry_category_add("features", 80, D_("Features"), 
+   e_configure_registry_category_add("features", 80, D_("Features"),
                                      NULL, "preferences-applications-add");
    /* add right-side item */
-   e_configure_registry_item_add("features/HOHO", 110, D_("HOHOHO"), 
+   e_configure_registry_item_add("features/HOHO", 110, D_("HOHOHO"),
                                  NULL, buf, _HOHO_configure);
 
    conf_edd = E_CONFIG_DD_NEW("Config", Config);
@@ -55,10 +54,10 @@ e_modapi_init(E_Module *m)
 
    /* Tell E to find any existing module data. First run ? */
    HOHO_conf = e_config_domain_load("module.HOHO", conf_edd);
-   if (HOHO_conf) 
+   if (HOHO_conf)
      {
         /* Check config version */
-        if ((HOHO_conf->version >> 16) < MOD_CONFIG_FILE_EPOCH) 
+        if ((HOHO_conf->version >> 16) < MOD_CONFIG_FILE_EPOCH)
           {
              /* config too old */
              _HOHO_conf_free();
@@ -78,11 +77,11 @@ e_modapi_init(E_Module *m)
           }
 
         /* Ardvarks */
-        else if (HOHO_conf->version > MOD_CONFIG_FILE_VERSION) 
+        else if (HOHO_conf->version > MOD_CONFIG_FILE_VERSION)
           {
              /* config too new...wtf ? */
              _HOHO_conf_free();
-	     ecore_timer_add(1.0, _HOHO_conf_timer, 
+	     ecore_timer_add(1.0, _HOHO_conf_timer,
 			     "Your HOHO Module configuration is NEWER "
 			     "than the module version. This is "
 			     "very<br>strange. This should not happen unless"
@@ -96,7 +95,7 @@ e_modapi_init(E_Module *m)
           }
      }
 
-   /* if we don't have a config yet, or it got erased above, 
+   /* if we don't have a config yet, or it got erased above,
     * then create a default one */
    if (!HOHO_conf) _HOHO_conf_new();
 
@@ -115,8 +114,8 @@ e_modapi_init(E_Module *m)
 /*
  * Function to unload the module
  */
-EAPI int 
-e_modapi_shutdown(E_Module *m) 
+EAPI int
+e_modapi_shutdown(E_Module *m)
 {
    /* Unregister the config dialog from the main panel */
    e_configure_registry_item_del("features/HOHO");
@@ -143,9 +142,9 @@ e_modapi_shutdown(E_Module *m)
 
 /*
  * Function to Save the modules config
- */ 
-EAPI int 
-e_modapi_save(E_Module *m) 
+ */
+EAPI int
+e_modapi_save(E_Module *m)
 {
    e_config_domain_save("module.HOHO", conf_edd, HOHO_conf);
    return 1;
@@ -153,8 +152,8 @@ e_modapi_save(E_Module *m)
 
 /* Local Functions */
 /* new module needs a new config :), or config too old and we need one anyway */
-static void 
-_HOHO_conf_new(void) 
+static void
+_HOHO_conf_new(void)
 {
    char buf[128];
 
@@ -180,22 +179,22 @@ _HOHO_conf_new(void)
 
 /* This is called when we need to cleanup the actual configuration,
  * for example when our configuration is too old */
-static void 
-_HOHO_conf_free(void) 
+static void
+_HOHO_conf_free(void)
 {
    E_FREE(HOHO_conf);
 }
 
 /* timer for the config oops dialog (old configuration needs update) */
-static int 
-_HOHO_conf_timer(void *data) 
+static Eina_Bool
+_HOHO_conf_timer(void *data)
 {
-   e_util_dialog_show( D_("HOHOHO Configuration Updated"), data);
-   return 0;
+   e_util_dialog_internal( D_("HOHOHO Configuration Updated"), data);
+   return EINA_FALSE;
 }
 
 /* Launcher Configure */
-static int
+static Eina_Bool
 _HOHO_configure(void)
 {
    char launcher[4096];
