@@ -1,0 +1,64 @@
+#!/bin/bash
+set -e
+
+data_dir=/usr/share/emodule-creator/data
+#########################################################
+usage(){
+   echo -e ""
+   echo -e "Usage: $(basename $0)  template_number  name"
+   echo -e ""
+   echo -e "   Examples:"
+   echo -e " 01   Edje in a Shelf [O]"
+   echo -e " 02   Totally free module without gadcon control [C]"
+   echo -e " 03   Edje in a Shelf with a menu example [O]"
+   echo -e " 04   Almost the Skel module, clean, small and complete [S,C]"
+   echo -e " 05   Menu, submenu, radiobox [S,C]"
+   echo -e " 06   Launcher, no-gadcon, internal module, with conf, menu [S,C]"
+   echo -e " 07   Config Item, no-gadcon, no-gui, no-menus, internal module with item in the preferences list"
+   echo -e ""
+   echo -e "[C = correct/standard code | O = old code | S = skel module based ] "
+   echo -e ""
+   echo -e "Note: for 'modulename' use a short name without spaces, numbers, or special chars "
+   exit 0
+}
+#########################################################
+[[ -z $2 ]] && usage
+modulename="$2"
+Modulename="$( echo "$modulename" | sed -e 's/^\(.\)/\U\1/' )"
+
+mod_dir="emodule-${modulename}"
+
+if [[ -d "$mod_dir" ]] ; then
+   echo -e "Error: $mod_dir exists, remove it first"
+   exit 1
+else
+   true
+fi
+
+mkdir -p $mod_dir
+cd $mod_dir
+
+cp -r ${data_dir}/example${1}/* .
+
+
+for file in $(find . -iname '*'HOHO'*')
+do
+   mv $file $(echo $file | sed "s/HOHO/$modulename/g" )
+done
+
+find . -type f | xargs sed -i "s/HOHOHO/$Modulename/g"
+find . -type f | xargs sed -i "s/HOHO/$modulename/g"
+
+#ln -s e_mod__example${2}.c src/e_mod_main.c 
+#ln -s e_mod__example${2}.h src/e_mod_main.h 
+
+
+echo -e "\nModule $modulename base files created, ready to compile and start hacking the code"
+echo -e "\nSome files that you want to modify:"
+echo -e " * $module_dir/${modulename}.edc   Edje interface"
+echo -e " * $module_dir/images/module_icon.png   Icon image of the module"
+echo -e " * $module_dir/src   Directory of the module source code"
+echo -e " * $module_dir/src/e_mod_main.c   Main file and where the calls to the templates are"
+echo -e ""
+echo -e "To compile it you can simply run: sh autogen.sh && make && make install"
+
