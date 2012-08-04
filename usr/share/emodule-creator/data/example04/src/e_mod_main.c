@@ -1,464 +1,363 @@
 #include <e.h>
 #include "e_mod_main.h"
 
-/* Local Function Prototypes */
+/* gadcon requirements */
 static E_Gadcon_Client *_gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style);
 static void _gc_shutdown(E_Gadcon_Client *gcc);
 static void _gc_orient(E_Gadcon_Client *gcc, E_Gadcon_Orient orient);
-static const char *_gc_label(E_Gadcon_Client_Class *client_class);
-static const char *_gc_id_new(E_Gadcon_Client_Class *client_class);
-static Evas_Object *_gc_icon(E_Gadcon_Client_Class *client_class, Evas *evas);
+static const char *_gc_label(const E_Gadcon_Client_Class *client_class);
+static Evas_Object *_gc_icon(const E_Gadcon_Client_Class *client_class, Evas *evas);
+static const char *_gc_id_new(const E_Gadcon_Client_Class *client_class);
+static Config_Item *_conf_item_get(const char *id);
 
-static void _HOHO_conf_new(void);
-static void _HOHO_conf_free(void);
-static Eina_Bool _HOHO_conf_timer(void *data);
-static Config_Item *_HOHO_conf_item_get(const char *id);
-static void _HOHO_cb_mouse_down(void *data, Evas *evas, Evas_Object *obj, void *event);
-static void _HOHO_cb_menu_post(void *data, E_Menu *menu);
-static void _HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi);
-
-/* Local Structures */
-typedef struct _Instance Instance;
-struct _Instance
+/* and actually define the gadcon class that this module provides (just 1) */
+static const E_Gadcon_Client_Class _gadcon_class =
 {
-   /* An instance of our item (module) with its elements */
-
-   /* pointer to this gadget's container */
-   E_Gadcon_Client *gcc;
-
-   /* evas_object used to display */
-   Evas_Object *o_HOHO;
-
-   /* popup anyone ? */
-   E_Menu *menu;
-
-   /* Config_Item structure. Every gadget should have one :) */
-   Config_Item *conf_item;
-};
-
-/* Local Variables */
-static Eina_List *instances = NULL;
-static E_Config_DD *conf_edd = NULL;
-static E_Config_DD *conf_item_edd = NULL;
-Config *HOHO_conf = NULL;
-
-static const E_Gadcon_Client_Class _gc_class =
-{
-   GADCON_CLIENT_CLASS_VERSION, "HOHO",
-     {_gc_init, _gc_shutdown, _gc_orient, _gc_label, _gc_icon,
-          _gc_id_new, NULL, NULL},
+   GADCON_CLIENT_CLASS_VERSION,
+   "Skeletor",
+   {
+      _gc_init, _gc_shutdown, _gc_orient, _gc_label, _gc_icon, _gc_id_new, NULL, NULL
+   },
    E_GADCON_CLIENT_STYLE_PLAIN
 };
+/**/
+/***************************************************************************/
 
-/* We set the version and the name, check e_mod_main.h for more details */
-EAPI E_Module_Api e_modapi = {E_MODULE_API_VERSION, "HOHO"};
+/***************************************************************************/
+static void _skeletor_cb_mouse_down(void *data, Evas *e, Evas_Object *obj, void *event_info);
+static void _skeletor_menu_cb_post(void *data, E_Menu *m);
+static void _skeletor_menu_cb_cfg(void *data, E_Menu *menu, E_Menu_Item *mi);
+/***************************************************************************/
 
-/*
- * Module Functions
- */
+/***************************************************************************/
+/***************************************************************************/
 
-/* Function called when the module is initialized */
-EAPI void *
-e_modapi_init(E_Module *m)
+/***************************************************************************/
+/**/
+/* actual module specifics */
+
+typedef struct _Instance Instance;
+
+struct _Instance
 {
-   char buf[4096];
-
-   /* Location of message catalogs for localization */
-   snprintf(buf, sizeof(buf), "%s/locale", e_module_dir_get(m));
-   bindtextdomain(PACKAGE, buf);
-   bind_textdomain_codeset(PACKAGE, "UTF-8");
-
-   /* Location of theme to load for this module */
-   snprintf(buf, sizeof(buf), "%s/e-module-HOHO.edj", m->dir);
+   E_Gadcon_Client *gcc;
+   Evas_Object     *logo;
+   E_Gadcon_Popup  *popup;
+   E_Menu          *menu;
+   Config_Item     *cfg;
+};
 
 
-   /* Display this Modules config info in the main Config Panel */
-
-   /* starts with a category, create it if not already exists */
-   e_configure_registry_category_add("advanced", 80, D_("Advanced"),
-                                     NULL, "preferences-advanced");
-   /* add right-side item */
-   e_configure_registry_item_add("advanced/HOHO", 110, D_("HOHOHO"),
-                                 NULL, buf, e_int_config_HOHO_module);
-
-   /* Define EET Data Storage for the config file */
-   conf_item_edd = E_CONFIG_DD_NEW("Config_Item", Config_Item);
-   #undef T
-   #undef D
-   #define T Config_Item
-   #define D conf_item_edd
-   E_CONFIG_VAL(D, T, id, STR);
-   E_CONFIG_VAL(D, T, switch2, INT);
-
-   conf_edd = E_CONFIG_DD_NEW("Config", Config);
-   #undef T
-   #undef D
-   #define T Config
-   #define D conf_edd
-   E_CONFIG_VAL(D, T, version, INT);
-   E_CONFIG_VAL(D, T, switch1, UCHAR); /* our var from header */
-   E_CONFIG_LIST(D, T, conf_items, conf_item_edd); /* the list */
-
-   /* Tell E to find any existing module data. First run ? */
-   HOHO_conf = e_config_domain_load("module.HOHO", conf_edd);
-   if (HOHO_conf)
-     {
-        /* Check config version */
-        if ((HOHO_conf->version >> 16) < MOD_CONFIG_FILE_EPOCH)
-          {
-             /* config too old */
-             _HOHO_conf_free();
-	     ecore_timer_add(1.0, _HOHO_conf_timer,
-			     "HOHO Module Configuration data needed "
-			     "upgrading. Your old configuration<br> has been"
-			     " wiped and a new set of defaults initialized. "
-			     "This<br>will happen regularly during "
-			     "development, so don't report a<br>bug. "
-			     "This simply means the module needs "
-			     "new configuration<br>data by default for "
-			     "usable functionality that your old<br>"
-			     "configuration simply lacks. This new set of "
-			     "defaults will fix<br>that by adding it in. "
-			     "You can re-configure things now to your<br>"
-			     "liking. Sorry for the inconvenience.<br>");
-          }
-
-        /* Ardvarks */
-        else if (HOHO_conf->version > MOD_CONFIG_FILE_VERSION)
-          {
-             /* config too new...wtf ? */
-             _HOHO_conf_free();
-	     ecore_timer_add(1.0, _HOHO_conf_timer,
-			     "Your HOHO Module configuration is NEWER "
-			     "than the module version. This is "
-			     "very<br>strange. This should not happen unless"
-			     " you downgraded<br>the module or "
-			     "copied the configuration from a place where"
-			     "<br>a newer version of the module "
-			     "was running. This is bad and<br>as a "
-			     "precaution your configuration has been now "
-			     "restored to<br>defaults. Sorry for the "
-			     "inconvenience.<br>");
-          }
-     }
-
-   /* if we don't have a config yet, or it got erased above,
-    * then create a default one */
-   if (!HOHO_conf) _HOHO_conf_new();
-
-   /* create a link from the modules config to the module
-    * this is not written */
-   HOHO_conf->module = m;
-
-   /* Tell any gadget containers (shelves, etc) that we provide a module
-    * for the user to enjoy */
-   e_gadcon_provider_register(&_gc_class);
-
-   /* Give E the module */
-   return m;
-}
-
+Config *skeletor_config = NULL;
+static E_Config_DD *conf_edd = NULL;
+static E_Config_DD *conf_item_edd = NULL;
+static E_Action *act;
+static Eina_List *skeletor_instances = NULL;
 /*
- * Function to unload the module
+ * This function is called when you add the Module to a Shelf or Gadgets, it
+ * this is where you want to add functions to do things.
  */
-EAPI int
-e_modapi_shutdown(E_Module *m)
-{
-   /* Unregister the config dialog from the main panel */
-   e_configure_registry_item_del("advanced/HOHO");
-
-   /* Remove the config panel category if we can. E will tell us.
-    category stays if other items using it */
-   e_configure_registry_category_del("advanced");
-
-   /* Kill the config dialog */
-   if (HOHO_conf->cfd) e_object_del(E_OBJECT(HOHO_conf->cfd));
-   HOHO_conf->cfd = NULL;
-
-   /* Tell E the module is now unloaded. Gets removed from shelves, etc. */
-   HOHO_conf->module = NULL;
-   e_gadcon_provider_unregister(&_gc_class);
-
-   /* Cleanup our item list */
-   while (HOHO_conf->conf_items)
-     {
-        Config_Item *ci = NULL;
-
-        /* Grab an item from the list */
-        ci = HOHO_conf->conf_items->data;
-        /* remove it */
-        HOHO_conf->conf_items =
-          eina_list_remove_list(HOHO_conf->conf_items,
-                                HOHO_conf->conf_items);
-        /* cleanup stringshares */
-        if (ci->id) eina_stringshare_del(ci->id);
-
-        /* keep the planet green */
-        E_FREE(ci);
-     }
-
-   /* Cleanup the main config structure */
-   E_FREE(HOHO_conf);
-
-   /* Clean EET */
-   E_CONFIG_DD_FREE(conf_item_edd);
-   E_CONFIG_DD_FREE(conf_edd);
-   return 1;
-}
-
-/*
- * Function to Save the modules config
- */
-EAPI int
-e_modapi_save(E_Module *m)
-{
-   e_config_domain_save("module.HOHO", conf_edd, HOHO_conf);
-   return 1;
-}
-
-/* Local Functions */
-
-/* Called when Gadget Controller (gadcon) says to appear in scene */
 static E_Gadcon_Client *
 _gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style)
 {
-   Instance *inst = NULL;
-   char buf[4096];
+   Evas_Object *o;
+   E_Gadcon_Client *gcc;
+   Instance *inst;
+   char buf[PATH_MAX];
 
-   /* theme file */
-   snprintf(buf, sizeof(buf), "%s/e-module-HOHO.edj",
-            HOHO_conf->module->dir);
-
-   /* New visual instance, any config ? */
    inst = E_NEW(Instance, 1);
-   inst->conf_item = _HOHO_conf_item_get(id);
 
-   /* create on-screen object */
-   inst->o_HOHO = edje_object_add(gc->evas);
-   /* we have a theme ? */
-   if (!e_theme_edje_object_set(inst->o_HOHO, "base/theme/modules/HOHO",
-                                "modules/HOHO/main"))
-     edje_object_file_set(inst->o_HOHO, buf, "modules/HOHO/main");
+   /*get plugin path*/
+   snprintf(buf, sizeof(buf), "%s/skeletor.edj",
+           e_module_dir_get(skeletor_config->module));
 
-   /* Start loading our module on screen via container */
-   inst->gcc = e_gadcon_client_new(gc, name, id, style, inst->o_HOHO);
-   inst->gcc->data = inst;
+   o = edje_object_add(gc->evas);
+   e_theme_edje_object_set(o, "base/theme/modules/skeletor",
+           "modules/skeletor/main");
+   edje_object_file_set(o,buf,"modules/skeletor/main");
+   edje_object_signal_emit(o, "e,state,unfocused", "e");
+   evas_object_show (o);
 
-   /* hook a mouse down. we want/have a popup menu, right ? */
-   evas_object_event_callback_add(inst->o_HOHO, EVAS_CALLBACK_MOUSE_DOWN,
-                                  _HOHO_cb_mouse_down, inst);
+   gcc = e_gadcon_client_new(gc, name, id, style, o);
+   gcc->data = inst;
 
-   /* add to list of running instances so we can cleanup later */
-   instances = eina_list_append(instances, inst);
+   inst->gcc = gcc;
+   inst->logo = o;
 
-   /* return the Gadget_Container Client */
-   return inst->gcc;
+   evas_object_event_callback_add(o, EVAS_CALLBACK_MOUSE_DOWN,
+	 _skeletor_cb_mouse_down, inst);
+
+   skeletor_config->instances =
+       eina_list_append(skeletor_config->instances, inst);
+
+   return gcc;
 }
 
-/* Called when Gadget_Container says stop */
+/*
+ * This function is called when you remove the Module from a Shelf or Gadgets,
+ * what this function really does is clean up, it removes everything the module
+ * displays
+ */
 static void
 _gc_shutdown(E_Gadcon_Client *gcc)
 {
-   Instance *inst = NULL;
+   Instance *inst;
 
-   if (!(inst = gcc->data)) return;
-   instances = eina_list_remove(instances, inst);
-
-   /* kill popup menu */
+   inst = gcc->data;
    if (inst->menu)
      {
-        e_menu_post_deactivate_callback_set(inst->menu, NULL, NULL);
-        e_object_del(E_OBJECT(inst->menu));
-        inst->menu = NULL;
+	e_menu_post_deactivate_callback_set(inst->menu, NULL, NULL);
+	e_object_del(E_OBJECT(inst->menu));
+	inst->menu = NULL;
      }
-   /* delete the visual */
-   if (inst->o_HOHO)
-     {
-        /* remove mouse down callback hook */
-        evas_object_event_callback_del(inst->o_HOHO, EVAS_CALLBACK_MOUSE_DOWN,
-                                       _HOHO_cb_mouse_down);
-        evas_object_del(inst->o_HOHO);
-     }
-   E_FREE(inst);
+   evas_object_del(inst->logo);
+   free(inst);
 }
 
-/* For when container says we are changing position */
 static void
-_gc_orient(E_Gadcon_Client *gcc, E_Gadcon_Orient orient)
+_gc_orient(E_Gadcon_Client *gcc, E_Gadcon_Orient orient __UNUSED__)
 {
-   e_gadcon_client_aspect_set(gcc, 16, 16);
-   e_gadcon_client_min_size_set(gcc, 16, 16);
+    Instance *inst;
+    Evas_Coord mw, mh;
+
+    inst = gcc->data;
+    mw = 0, mh = 0;
+    edje_object_size_min_get(inst->logo, &mw, &mh);
+    if ((mw < 1) || (mh < 1))
+        edje_object_size_min_calc(inst->logo, &mw, &mh);
+    if (mw < 4) mw = 4;
+    if (mh < 4) mh = 4;
+    e_gadcon_client_aspect_set(gcc, mw, mh);
+    e_gadcon_client_min_size_set(gcc, mw, mh);
 }
 
-/* Gadget/Module label, name for our module */
+/*
+ * This function sets the Gadcon name of the module, not to confuse this with
+ * E_Module_Api
+ */
 static const char *
-_gc_label(E_Gadcon_Client_Class *client_class)
+_gc_label(const E_Gadcon_Client_Class *client_class __UNUSED__)
 {
-   return D_("HOHO");
+   return ("Skeletor");
 }
 
-/* so E can keep a unique instance per-container */
-static const char *
-_gc_id_new(E_Gadcon_Client_Class *client_class)
-{
-   Config_Item *ci = NULL;
-
-   ci = _HOHO_conf_item_get(NULL);
-   return ci->id;
-}
-
+/*
+ * This functions sets the Gadcon icon, the icon you see when you go to add
+ * the module to a Shelf or Gadgets.
+ */
 static Evas_Object *
-_gc_icon(E_Gadcon_Client_Class *client_class, Evas *evas)
+_gc_icon(const E_Gadcon_Client_Class *client_class __UNUSED__, Evas *evas)
 {
-   Evas_Object *o = NULL;
-   char buf[4096];
+   Evas_Object *o;
+   char buf[PATH_MAX];
 
-   /* theme */
-   snprintf(buf, sizeof(buf), "%s/e-module-HOHO.edj", HOHO_conf->module->dir);
-
-   /* create icon object */
    o = edje_object_add(evas);
-
-   /* load icon from theme */
+   snprintf(buf, sizeof(buf), "%s/e-module-skeletor.edj",
+           e_module_dir_get(skeletor_config->module));
    edje_object_file_set(o, buf, "icon");
-
    return o;
 }
 
-/* new module needs a new config :), or config too old and we need one anyway */
-static void
-_HOHO_conf_new(void)
+/*
+ * This function sets the id for the module, so it can be unique from other
+ * modules
+ */
+static const char *
+_gc_id_new(const E_Gadcon_Client_Class *client_class __UNUSED__)
 {
-   Config_Item *ci = NULL;
-   char buf[128];
+    static char buf[PATH_MAX];
 
-   HOHO_conf = E_NEW(Config, 1);
-   HOHO_conf->version = (MOD_CONFIG_FILE_EPOCH << 16);
-
-#define IFMODCFG(v) if ((HOHO_conf->version & 0xffff) < v) {
-#define IFMODCFGEND }
-
-   /* setup defaults */
-   IFMODCFG(0x008d);
-   HOHO_conf->switch1 = 1;
-   _HOHO_conf_item_get(NULL);
-   IFMODCFGEND;
-
-   /* update the version */
-   HOHO_conf->version = MOD_CONFIG_FILE_VERSION;
-
-   /* setup limits on the config properties here (if needed) */
-
-   /* save the config to disk */
-   e_config_save_queue();
+    snprintf(buf, sizeof(buf), "%s.%d", _gadcon_class.name,
+            eina_list_count(skeletor_config->instances) + 1);
+    return buf;
 }
 
-/* This is called when we need to cleanup the actual configuration,
- * for example when our configuration is too old */
-static void
-_HOHO_conf_free(void)
-{
-   /* cleanup any stringshares here */
-   while (HOHO_conf->conf_items)
-     {
-        Config_Item *ci = NULL;
-
-        ci = HOHO_conf->conf_items->data;
-        HOHO_conf->conf_items =
-          eina_list_remove_list(HOHO_conf->conf_items,
-                                HOHO_conf->conf_items);
-        /* EPA */
-        if (ci->id) eina_stringshare_del(ci->id);
-        E_FREE(ci);
-     }
-
-   E_FREE(HOHO_conf);
-}
-
-/* timer for the config oops dialog (old configuration needs update) */
-static Eina_Bool
-_HOHO_conf_timer(void *data)
-{
-   e_util_dialog_internal( D_("HOHO Configuration Updated"), data);
-   return EINA_FALSE;
-}
-
-/* function to search for any Config_Item struct for this Item
- * create if needed */
 static Config_Item *
-_HOHO_conf_item_get(const char *id)
+_conf_item_get(const char *id)
 {
-   Config_Item *ci;
+    Config_Item *ci;
 
-   GADCON_CLIENT_CONFIG_GET(Config_Item, HOHO_conf->conf_items, _gc_class, id);
+    GADCON_CLIENT_CONFIG_GET(Config_Item, skeletor_config->items, _gadcon_class, id);
 
-   ci = E_NEW(Config_Item, 1);
-   ci->id = eina_stringshare_add(id);
-   ci->switch2 = 0;
-   HOHO_conf->conf_items = eina_list_append(HOHO_conf->conf_items, ci);
-   return ci;
+    ci = E_NEW(Config_Item, 1);
+    ci->id = eina_stringshare_add(id);
+
+    skeletor_config->items = eina_list_append(skeletor_config->items, ci);
+    e_config_save_queue();
+
+    return ci;
 }
 
-/* Pants On */
 static void
-_HOHO_cb_mouse_down(void *data, Evas *evas, Evas_Object *obj, void *event)
+_skeletor_menu_cb_cfg(void *data, E_Menu *menu __UNUSED__, E_Menu_Item *mi __UNUSED__)
 {
-   Instance *inst = NULL;
-   Evas_Event_Mouse_Down *ev;
-   E_Zone *zone = NULL;
-   E_Menu_Item *mi = NULL;
-   int x, y;
+    Instance *inst = data;
+    E_Container *con;
 
-   if (!(inst = data)) return;
-   ev = event;
-   if ((ev->button == 3) && (!inst->menu))
-     {
+    if(inst->popup)
+    {
+        e_object_del(E_OBJECT(inst->popup));
+        inst->popup = NULL;
+    }
+    con = e_container_current_get(e_manager_current_get());
+    e_int_config_skeletor_module(con, NULL);
+}
+
+static void
+_skeletor_cb_mouse_down(void *data, Evas *e __UNUSED__, Evas_Object *obj __UNUSED__, void *event_info)
+{
+    Instance *inst;
+    Evas_Event_Mouse_Down *ev;
+
+    inst = data;
+    ev = event_info;
+    if((ev->button == 1) && !(inst->menu))
+    {
+	    int x, y;
+
+        inst->menu = e_int_menus_main_new();
+
+        e_menu_post_deactivate_callback_set(inst->menu,
+                _skeletor_menu_cb_post, inst);
+
+        e_gadcon_locked_set(inst->gcc->gadcon,1);
+        e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon, &x, &y, NULL, NULL);
+
+        e_menu_activate_mouse(inst->menu,
+                e_util_zone_current_get(e_manager_current_get())
+                , x + ev->output.x, y + ev->output.y,
+                1, 1, E_MENU_POP_DIRECTION_AUTO, ev->timestamp);
+
+        edje_object_signal_emit(inst->logo, "e,state,focused", "e");
+    }
+    else if ((ev->button == 3) && (!inst->menu))
+    {
+        E_Zone *zone;
         E_Menu *m;
+        E_Menu_Item *mi;
+        int x, y;
 
-        /* grab current zone */
         zone = e_util_zone_current_get(e_manager_current_get());
 
-        /* create popup menu */
         m = e_menu_new();
         mi = e_menu_item_new(m);
-        e_menu_item_label_set(mi, D_("Settings"));
-        e_util_menu_item_theme_icon_set(mi, "preferences-system");
-        e_menu_item_callback_set(mi, _HOHO_cb_menu_configure, NULL);
-
-        /* Each Gadget Client has a utility menu from the Container */
+        e_menu_item_label_set(mi, "Settings");
+        e_util_menu_item_theme_icon_set(mi, "configure");
+        e_menu_item_callback_set(mi, _skeletor_menu_cb_cfg, inst);
         m = e_gadcon_client_util_menu_items_append(inst->gcc, m, 0);
-        e_menu_post_deactivate_callback_set(m, _HOHO_cb_menu_post, inst);
+        e_menu_post_deactivate_callback_set(m, _skeletor_menu_cb_post, inst);
         inst->menu = m;
 
-        e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon, &x, &y, 
-                                          NULL, NULL);
+        e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon, &x, &y, NULL, NULL);
+        e_menu_activate_mouse(m, zone, x + ev->output.x, y + ev->output.y,
+                              1, 1, E_MENU_POP_DIRECTION_AUTO, ev->timestamp);
 
-        /* show the menu relative to gadgets position */
-        e_menu_activate_mouse(m, zone, (x + ev->output.x),
-                              (y + ev->output.y), 1, 1,
-                              E_MENU_POP_DIRECTION_AUTO, ev->timestamp);
         evas_event_feed_mouse_up(inst->gcc->gadcon->evas, ev->button,
                                  EVAS_BUTTON_NONE, ev->timestamp, NULL);
      }
 }
 
-/* popup menu closing, cleanup */
+/*
+ * This function is a call-back it removes the menu after the use clicks on
+ * a item in the menu or click of the menu, basically it removes the menu
+ * from being displayed.
+ */
 static void
-_HOHO_cb_menu_post(void *data, E_Menu *menu)
+_skeletor_menu_cb_post(void *data, E_Menu *m __UNUSED__)
 {
-   Instance *inst = NULL;
+    Instance *inst;
 
-   if (!(inst = data)) return;
-   if (!inst->menu) return;
-   e_object_del(E_OBJECT(inst->menu));
-   inst->menu = NULL;
+    inst = data;
+    if(inst->menu)
+    {
+        edje_object_signal_emit(inst->logo, "e,state,unfocused", "e");
+        e_object_del(E_OBJECT(inst->menu));
+        inst->menu = NULL;
+    }
 }
 
-/* call configure from popup */
-static void
-_HOHO_cb_menu_configure(void *data, E_Menu *mn, E_Menu_Item *mi)
+/* This is needed to advertise a label for the module IN the code (not just
+ * the .desktop file) but more specifically the api version it was compiled
+ * for so E can skip modules that are compiled for an incorrect API version
+ * safely) */
+EAPI E_Module_Api e_modapi =
 {
-   if (!HOHO_conf) return;
-   if (HOHO_conf->cfd) return;
-   e_int_config_HOHO_module(mn->zone->container, NULL);
+   E_MODULE_API_VERSION,
+   "Skeletor"
+};
+
+/*
+ * This is the first function called by e17 when you click the enable button
+ */
+EAPI void *
+e_modapi_init(E_Module *m)
+{
+    conf_item_edd = E_CONFIG_DD_NEW("Config_Item", Config_Item);
+#undef T
+#undef D
+#define T Config_Item
+#define D conf_item_edd
+    E_CONFIG_VAL(D, T, id, STR);
+
+    conf_edd = E_CONFIG_DD_NEW("Skeletor_Config", Config);
+#undef T
+#undef D
+#define T Config
+#define D conf_edd
+    E_CONFIG_LIST(D, T, items, conf_item_edd);
+    E_CONFIG_VAL(D, T, set, INT);
+
+    skeletor_config = e_config_domain_load("module.skeletor", conf_edd);
+    if(!skeletor_config)
+        skeletor_config = E_NEW(Config, 1);
+
+    skeletor_config->module = m;
+    e_gadcon_provider_register(&_gadcon_class);
+    return m;
 }
+
+/*
+ * This function is called by e17 when you disable the module, in e_modapi_shutdown
+ * you should try to free all resources used while the module was enabled.
+ */
+EAPI int
+e_modapi_shutdown(E_Module *m __UNUSED__)
+{
+    Config_Item *ci;
+
+    e_gadcon_provider_unregister(&_gadcon_class);
+
+    if(skeletor_config)
+    {
+        skeletor_config->module = NULL;
+        skeletor_config->instances = NULL;
+
+        EINA_LIST_FREE(skeletor_config->items, ci)
+        {
+            eina_stringshare_del(ci->id);
+            free(ci);
+        }
+        E_FREE(skeletor_config);
+        skeletor_config = NULL;
+   }
+   E_CONFIG_DD_FREE(conf_edd);
+   E_CONFIG_DD_FREE(conf_item_edd);
+   conf_edd = NULL;
+   conf_item_edd = NULL;
+
+   return 1;
+}
+
+/*
+ * e_modapi_save is used to save and store configuration info on local
+ * storage
+ */
+EAPI int
+e_modapi_save(E_Module *m __UNUSED__)
+{
+   return 1;
+}
+
+/**/
+/***************************************************************************/
+
