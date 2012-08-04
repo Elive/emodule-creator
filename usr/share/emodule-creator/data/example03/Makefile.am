@@ -12,26 +12,25 @@ SUBDIRS += po
 endif
 
 EDJE_FLAGS = -v \
-	   -id $(top_srcdir)/images \
-	   -fd $(top_srcdir)/fonts
+	     -id $(top_srcdir)/images
 
-# data files for the module
-filesdir =  $(datadir)
+filesdir = $(datadir)
+files_DATA = module.desktop e-module-skeletor.edj skeletor.edj
 
-files_DATA = module.desktop \
-	     e-module-HOHO.edj \
-	     HOHO.edj
-	     
-EXTRA_DIST = $(files_DATA) \
-		 e_modules-HOHO.spec \
-	     HOHO.edc \
-	     e-module-HOHO.edc \
+EXTRA_DIST = module.desktop.in \
+	     e_modules-skeletor.spec.in \
+	     e-module-skeletor.edc \
 	     images/module_icon.png \
-	     images/HOHO.png
+		 skeletor.edc \
+		 images/gadcon_logo.png
+
+e-module-skeletor.edj: Makefile e-module-skeletor.edc images/module_icon.png
+skeletor.edj: Makefile skeletor.edc  images/gadcon_logo.png
 
 %.edj:  %.edc
 	$(EDJE_CC) $(EDJE_FLAGS) $< $@
+
 clean-local:
-	 rm -rf *.edj module.desktop *~
+	 rm -rf *.edj module.desktop e_modules-skel.spec *~
 uninstall:
 	 rm -rf $(DESTDIR)$(datadir)
