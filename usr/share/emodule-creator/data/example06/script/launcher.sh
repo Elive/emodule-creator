@@ -7,6 +7,7 @@ case $1 in
       # set -e = if any step fails, the script exits with value 1
       set -e
       echo autodetect
+      notify-send -i xterm "Launcher.sh" "E Module executed launcher [autodetect] "
       #test -x /etc/init.d/bluetooth
       ## lshal | grep "linux.subsystem" | grep -q "bluetooth" # Do not enable this: so we want to have always bluetooth listening, so we want to always run it even if we dont have a bluetooth plugged
 
@@ -17,7 +18,8 @@ case $1 in
       if ! ps ux | grep -v grep | grep "${command%% *}" 2>/dev/null ; then
          # important: do not use " for run the command and run in bg mode
          ( $command & ) &
-      fi
+      fi 
+        notify-send -i xterm "Launcher.sh" "E Module executed launcher:[run] "
 
       exit 0
       ;;
