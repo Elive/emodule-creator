@@ -1,22 +1,21 @@
 #include <e.h>
 #include "e_mod_main.h"
 
-/***************************************************************************/
-/**/
 /* gadcon requirements */
 static E_Gadcon_Client *_gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style);
 static void _gc_shutdown(E_Gadcon_Client *gcc);
-static void _gc_orient(E_Gadcon_Client *gcc);
-static const char *_gc_label(void);
-static Evas_Object *_gc_icon(Evas *evas);
-static const char *_gc_id_new(void);
+static void _gc_orient(E_Gadcon_Client *gcc, E_Gadcon_Orient orient);
+static const char *_gc_label(const E_Gadcon_Client_Class *client_class);
+static Evas_Object *_gc_icon(const E_Gadcon_Client_Class *client_class, Evas *evas);
+static const char *_gc_id_new(const E_Gadcon_Client_Class *client_class);
+
 /* and actually define the gadcon class that this module provides (just 1) */
 static const E_Gadcon_Client_Class _gadcon_class =
 {
    GADCON_CLIENT_CLASS_VERSION,
-   "HOHO", /* name of the module */
+   "Skeletor",
    {
-      _gc_init, _gc_shutdown, _gc_orient, _gc_label, _gc_icon, _gc_id_new, NULL
+      _gc_init, _gc_shutdown, _gc_orient, _gc_label, _gc_icon, _gc_id_new, NULL, NULL
    },
    E_GADCON_CLIENT_STYLE_PLAIN
 };
@@ -24,8 +23,8 @@ static const E_Gadcon_Client_Class _gadcon_class =
 /***************************************************************************/
 
 /***************************************************************************/
-static void _button_cb_mouse_down(void *data, Evas *e, Evas_Object *obj, void *event_info);
-static void _menu_cb_post(void *data, E_Menu *m);
+static void _skeletor_cb_mouse_down(void *data, Evas *e, Evas_Object *obj, void *event_info);
+static void _skeletor_menu_cb_post(void *data, E_Menu *m);
 /***************************************************************************/
 
 /***************************************************************************/
@@ -36,256 +35,254 @@ static void _menu_cb_post(void *data, E_Menu *m);
 /* actual module specifics */
 
 typedef struct _Instance Instance;
-//typedef struct _Config_Item Config_Item;
 
 struct _Instance
 {
    E_Gadcon_Client *gcc;
-   Evas_Object     *o_button;
-   E_Menu          *main_menu;
+   Evas_Object     *logo;
+   E_Menu          *menu;
 };
+
+Config *skeletor_config = NULL;
 
 /*
-struct _Config_Item
-{
-   const char *id;
-   int lang_selected;
-};
-*/
-
-static E_Module *HOHO = NULL;
-
-   static E_Gadcon_Client *
+ * This function is called when you add the Module to a Shelf or Gadgets, it
+ * this is where you want to add functions to do things.
+ */
+static E_Gadcon_Client *
 _gc_init(E_Gadcon *gc, const char *name, const char *id, const char *style)
 {
    Evas_Object *o;
    E_Gadcon_Client *gcc;
    Instance *inst;
+   char buf[PATH_MAX];
 
-   char buf[4096];
    inst = E_NEW(Instance, 1);
 
-   snprintf (buf, sizeof (buf), "%s/HOHO.edj",
-    e_module_dir_get (HOHO));
+   /*get plugin path*/
+   snprintf(buf, sizeof(buf), "%s/skeletor.edj",
+           e_module_dir_get(skeletor_config->module));
 
    o = edje_object_add(gc->evas);
-   e_theme_edje_object_set(o, "base/theme/modules/HOHO", "e/modules/HOHO/main");
-   edje_object_file_set (o, buf, "e/modules/HOHO/main");
-   evas_object_show (o); // FIXME ? remove ?
+   e_theme_edje_object_set(o, "base/theme/modules/skeletor",
+           "modules/skeletor/main");
+   edje_object_file_set(o,buf,"modules/skeletor/main");
    edje_object_signal_emit(o, "e,state,unfocused", "e");
+   evas_object_show (o);
 
    gcc = e_gadcon_client_new(gc, name, id, style, o);
    gcc->data = inst;
 
    inst->gcc = gcc;
-   inst->o_button = o;
-   inst->main_menu = NULL;
-
-   e_gadcon_client_util_menu_attach(gcc);
+   inst->logo = o;
 
    evas_object_event_callback_add(o, EVAS_CALLBACK_MOUSE_DOWN,
-	 _button_cb_mouse_down, inst);
+	 _skeletor_cb_mouse_down, inst);
+
+   skeletor_config->instances =
+       eina_list_append(skeletor_config->instances, inst);
+
    return gcc;
 }
 
-/* this is what happens when you unload the module */
+/*
+ * This function is called when you remove the Module from a Shelf or Gadgets,
+ * what this function really does is clean up, it removes everything the module
+ * displays
+ */
 static void
 _gc_shutdown(E_Gadcon_Client *gcc)
 {
    Instance *inst;
 
    inst = gcc->data;
-   if (inst->main_menu)
+   if (inst->menu)
      {
-	e_menu_post_deactivate_callback_set(inst->main_menu, NULL, NULL);
-	e_object_del(E_OBJECT(inst->main_menu));
-	inst->main_menu = NULL;
+	e_menu_post_deactivate_callback_set(inst->menu, NULL, NULL);
+	e_object_del(E_OBJECT(inst->menu));
+	inst->menu = NULL;
      }
-   evas_object_del(inst->o_button);
+   evas_object_del(inst->logo);
    free(inst);
 }
 
-   static void
-_gc_orient(E_Gadcon_Client *gcc)
+static void
+_gc_orient(E_Gadcon_Client *gcc, E_Gadcon_Orient orient __UNUSED__)
 {
-   Instance *inst;
+    Instance *inst;
+    Evas_Coord mw, mh;
 
-   inst = gcc->data;
-   e_gadcon_client_aspect_set(gcc, 16, 16);
-   e_gadcon_client_min_size_set(gcc, 16, 16);
-
+    inst = gcc->data;
+    mw = 0, mh = 0;
+    edje_object_size_min_get(inst->logo, &mw, &mh);
+    if ((mw < 1) || (mh < 1))
+        edje_object_size_min_calc(inst->logo, &mw, &mh);
+    if (mw < 4) mw = 4;
+    if (mh < 4) mh = 4;
+    e_gadcon_client_aspect_set(gcc, mw, mh);
+    e_gadcon_client_min_size_set(gcc, mw, mh);
 }
 
-   static const char *
-_gc_label(void)
+/*
+ * This function sets the Gadcon name of the module, not to confuse this with
+ * E_Module_Api
+ */
+static const char *
+_gc_label(const E_Gadcon_Client_Class *client_class __UNUSED__)
 {
-   return ("HOHO");
+   return ("Skeletor");
 }
 
-   static Evas_Object *
-_gc_icon(Evas *evas)
+/*
+ * This functions sets the Gadcon icon, the icon you see when you go to add
+ * the module to a Shelf or Gadgets.
+ */
+static Evas_Object *
+_gc_icon(const E_Gadcon_Client_Class *client_class __UNUSED__, Evas *evas)
 {
    Evas_Object *o;
-   char buf[4096];
+   char buf[PATH_MAX];
 
    o = edje_object_add(evas);
-   snprintf(buf, sizeof(buf), "%s/e-module-HOHO.edj",
-	 e_module_dir_get(HOHO));
+   snprintf(buf, sizeof(buf), "%s/e-module-skeletor.edj",
+           e_module_dir_get(skeletor_config->module));
    edje_object_file_set(o, buf, "icon");
    return o;
 }
 
-   static const char *
-_gc_id_new(void)
+/*
+ * This function sets the id for the module, so it can be unique from other
+ * modules
+ */
+static const char *
+_gc_id_new(const E_Gadcon_Client_Class *client_class __UNUSED__)
 {
-   return _gadcon_class.name;
+    static char buf[PATH_MAX];
+
+    snprintf(buf, sizeof(buf), "%s.%d", _gadcon_class.name,
+            eina_list_count(skeletor_config->instances) + 1);
+    return buf;
 }
 
-/**/
-/***************************************************************************/
-
-/***************************************************************************/
-/*static Config_Item *
-_config_item_get(const char *id)
-{
- //  Eina_List   *l;
-   Config_Item *ci;
- //  char buf[128];
-//   ci->lang_selected = 0;
-}*/
-/***************************************************************************/
-
-/***************************************************************************/
-/*modules callback*/
-
 static void
-_button_cb_mouse_down(void *data, Evas *e, Evas_Object *obj, void *event_info)
+_skeletor_cb_mouse_down(void *data, Evas *e __UNUSED__, Evas_Object *obj __UNUSED__, void *event_info)
 {
-   Instance *inst;
-   Evas_Event_Mouse_Down *ev;
+    Instance *inst;
+    Evas_Event_Mouse_Down *ev;
 
-   inst = data;
-   ev = event_info;
-   if (ev->button == 1)
-     {
-	Evas_Coord x, y, w, h;
-	int cx, cy, cw, ch;
+    inst = data;
+    ev = event_info;
+    if((ev->button == 1) && !(inst->menu))
+    {
+	    int x, y;
 
-	evas_object_geometry_get(inst->o_button, &x, &y, &w, &h);
-	e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon,
-	      &cx, &cy, &cw, &ch);
-	x += cx;
-	y += cy;
-	if (!inst->main_menu)
-      printf("Showing menu now because is not showing up\n");
-	  //inst->main_menu = e_int_menus_main_new();
-	if (inst->main_menu)
-	  {
-	     int dir;
+        inst->menu = e_int_menus_main_new();
 
-	     e_menu_post_deactivate_callback_set(inst->main_menu,
-		   _menu_cb_post,
-		   inst);
-	     dir = E_MENU_POP_DIRECTION_AUTO;
-	     switch (inst->gcc->gadcon->orient)
-	       {
-		case E_GADCON_ORIENT_TOP:
-		   dir = E_MENU_POP_DIRECTION_DOWN;
-		   break;
-		case E_GADCON_ORIENT_BOTTOM:
-		   dir = E_MENU_POP_DIRECTION_UP;
-		   break;
-		case E_GADCON_ORIENT_LEFT:
-		   dir = E_MENU_POP_DIRECTION_RIGHT;
-		   break;
-		case E_GADCON_ORIENT_RIGHT:
-		   dir = E_MENU_POP_DIRECTION_LEFT;
-		   break;
-		case E_GADCON_ORIENT_CORNER_TL:
-		   dir = E_MENU_POP_DIRECTION_DOWN;
-		   break;
-		case E_GADCON_ORIENT_CORNER_TR:
-		   dir = E_MENU_POP_DIRECTION_DOWN;
-		   break;
-		case E_GADCON_ORIENT_CORNER_BL:
-		   dir = E_MENU_POP_DIRECTION_UP;
-		   break;
-		case E_GADCON_ORIENT_CORNER_BR:
-		   dir = E_MENU_POP_DIRECTION_UP;
-		   break;
-		case E_GADCON_ORIENT_CORNER_LT:
-		   dir = E_MENU_POP_DIRECTION_RIGHT;
-		   break;
-		case E_GADCON_ORIENT_CORNER_RT:
-		   dir = E_MENU_POP_DIRECTION_LEFT;
-		   break;
-		case E_GADCON_ORIENT_CORNER_LB:
-		   dir = E_MENU_POP_DIRECTION_RIGHT;
-		   break;
-		case E_GADCON_ORIENT_CORNER_RB:
-		   dir = E_MENU_POP_DIRECTION_LEFT;
-		   break;
-		case E_GADCON_ORIENT_FLOAT:
-		case E_GADCON_ORIENT_HORIZ:
-		case E_GADCON_ORIENT_VERT:
-		default:
-		   dir = E_MENU_POP_DIRECTION_AUTO;
-		   break;
-	       }
-	     e_menu_activate_mouse(inst->main_menu,
-		   e_util_zone_current_get(e_manager_current_get()),
-		   x, y, w, h,
-		   dir, ev->timestamp);
-	     edje_object_signal_emit(inst->o_button, "e,state,focused", "e");
-	  }
+        e_menu_post_deactivate_callback_set(inst->menu,
+                _skeletor_menu_cb_post, inst);
+
+        e_gadcon_locked_set(inst->gcc->gadcon,1);
+        e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon, &x, &y, NULL, NULL);
+
+        e_menu_activate_mouse(inst->menu,
+                e_util_zone_current_get(e_manager_current_get())
+                , x + ev->output.x, y + ev->output.y,
+                1, 1, E_MENU_POP_DIRECTION_AUTO, ev->timestamp);
+
+        edje_object_signal_emit(inst->logo, "e,state,focused", "e");
+    }
+    else if ((ev->button == 3) && (!inst->menu))
+    {
+        E_Zone *zone;
+        E_Menu *m;
+        int x, y;
+
+        zone = e_util_zone_current_get(e_manager_current_get());
+
+        m = e_menu_new();
+        m = e_gadcon_client_util_menu_items_append(inst->gcc, m, 0);
+        e_menu_post_deactivate_callback_set(m, _skeletor_menu_cb_post, inst);
+        inst->menu = m;
+
+        e_gadcon_canvas_zone_geometry_get(inst->gcc->gadcon, &x, &y, NULL, NULL);
+        e_menu_activate_mouse(m, zone, x + ev->output.x, y + ev->output.y,
+                              1, 1, E_MENU_POP_DIRECTION_AUTO, ev->timestamp);
+
+        evas_event_feed_mouse_up(inst->gcc->gadcon->evas, ev->button,
+                                 EVAS_BUTTON_NONE, ev->timestamp, NULL);
      }
 }
 
-   static void
-_menu_cb_post(void *data, E_Menu *m)
+/*
+ * This function is a call-back it removes the menu after the use clicks on
+ * a item in the menu or click of the menu, basically it removes the menu
+ * from being displayed.
+ */
+static void
+_skeletor_menu_cb_post(void *data, E_Menu *m __UNUSED__)
 {
-   Instance *inst;
+    Instance *inst;
 
-   inst = data;
-   if (!inst->main_menu) return;
-   edje_object_signal_emit(inst->o_button, "e,state,unfocused", "e");
-   e_object_del(E_OBJECT(inst->main_menu));
-   inst->main_menu = NULL;
+    inst = data;
+    if(inst->menu)
+    {
+        edje_object_signal_emit(inst->logo, "e,state,unfocused", "e");
+        e_object_del(E_OBJECT(inst->menu));
+        inst->menu = NULL;
+    }
 }
-/**/
-/***************************************************************************/
 
-/***************************************************************************/
-/**/
-/* module setup */
+/* This is needed to advertise a label for the module IN the code (not just
+ * the .desktop file) but more specifically the api version it was compiled
+ * for so E can skip modules that are compiled for an incorrect API version
+ * safely) */
 EAPI E_Module_Api e_modapi =
 {
    E_MODULE_API_VERSION,
-   "HOHO"
+   "Skeletor"
 };
 
-   EAPI void *
+/*
+ * This is the first function called by e17 when you click the enable button
+ */
+EAPI void *
 e_modapi_init(E_Module *m)
 {
-   HOHO = m;
+    if(!skeletor_config)
+        skeletor_config = E_NEW(Config, 1);
 
-   e_gadcon_provider_register(&_gadcon_class);
-   return m;
+    skeletor_config->module = m;
+    e_gadcon_provider_register(&_gadcon_class);
+    return m;
 }
 
-   EAPI int
-e_modapi_shutdown(E_Module *m)
+/*
+ * This function is called by e17 when you disable the module, in e_modapi_shutdown
+ * you should try to free all resources used while the module was enabled.
+ */
+EAPI int
+e_modapi_shutdown(E_Module *m __UNUSED__)
 {
-   HOHO = NULL;
+    e_gadcon_provider_unregister(&_gadcon_class);
 
-   e_gadcon_provider_unregister(&_gadcon_class);
-   return 1;
+    if(skeletor_config)
+    {
+        skeletor_config->module = NULL;
+        skeletor_config->instances = NULL;
+    }
+
+    free(skeletor_config);
+    skeletor_config = NULL;
+    return 1;
 }
 
-   EAPI int
-e_modapi_save(E_Module *m)
+/*
+ * e_modapi_save is used to save and store configuration info on local
+ * storage
+ */
+EAPI int
+e_modapi_save(E_Module *m __UNUSED__)
 {
-   // e_config_domain_save("module.(HOHO ?)", conf_edd, HOHO);
    return 1;
 }
 
