@@ -22,7 +22,9 @@ usage(){
    exit 0
 }
 #########################################################
-[[ -z $2 ]] && usage
+if [[ -z $2 ]] ; then
+    usage
+fi
 modulename="$2"
 Modulename="$( echo "$modulename" | sed -e 's/^\(.\)/\U\1/' )"
 
@@ -41,16 +43,16 @@ cd $mod_dir
 cp -r ${data_dir}/example${1}/* .
 
 
-for file in $(find . -iname '*'HOHO'*')
+for file in $(find . -iname '*'skeletor'*')
 do
-   mv $file $(echo $file | sed "s/HOHO/$modulename/g" )
+   mv $file $(echo $file | sed "s/skeletor/$modulename/g" )
 done
 
-find . -type f | xargs sed -i "s/HOHOHO/$Modulename/g"
-find . -type f | xargs sed -i "s/HOHO/$modulename/g"
+find . -name .git -prune -o -type f | xargs sed -i "s/Skeletor/$Modulename/g"
+find . -name .git -prune -o -type f | xargs sed -i "s/skeletor/$modulename/g"
 
-#ln -s e_mod__example${2}.c src/e_mod_main.c 
-#ln -s e_mod__example${2}.h src/e_mod_main.h 
+#ln -s e_mod__example${2}.c src/e_mod_main.c
+#ln -s e_mod__example${2}.h src/e_mod_main.h
 
 
 echo -e "\nModule $modulename base files created, ready to compile and start hacking the code"
