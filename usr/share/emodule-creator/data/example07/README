@@ -1,3 +1,3 @@
-This module acts like an internal module, so it doesn't has a "public" interface (gadcon), you can't show it in a shelf, etc, but it contains a configuration interface in the e17 preferences, it has a small menu.
+This module is created as an example to new users on how to use
+e17 module api to create there own modules [skel clone]
 
-It acts like a launcher in 2 parts, the first one is a checker, the second is a launcher, it uses ecore_exe and the ecore handlers to know the exit state and to run it in background

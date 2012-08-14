@@ -1,208 +1,136 @@
 #include <e.h>
 #include "e_mod_main.h"
 
-/* Local Function Prototypes */
-static void _HOHO_conf_new(void);
-static void _HOHO_conf_free(void);
-static Eina_Bool _HOHO_conf_timer(void *data);
-static Eina_Bool _HOHO_configure(void);
+static void _skeletor_cb_mouse_down(void *data, Evas *e, Evas_Object *obj, void *event_info);
+static void _skeletor_menu_cb_post(void *data, E_Menu *m);
+static void _skeletor_menu_cb_cfg(void *data, E_Menu *menu, E_Menu_Item *mi);
+/***************************************************************************/
+/* actual module specifics */
 
-/* Local Structures */
+typedef struct _Instance Instance;
 
-/* Local Variables */
+struct _Instance
+{
+   E_Gadcon_Client *gcc;
+   Config_Item     *cfg;
+};
+
+Config *skeletor_config = NULL;
+
 static E_Config_DD *conf_edd = NULL;
-Config *HOHO_conf = NULL;
+static E_Config_DD *conf_item_edd = NULL;
 
-/* We set the version and the name, check e_mod_main.h for more details */
-EAPI E_Module_Api e_modapi = {E_MODULE_API_VERSION, "HOHO"};
+static Config_Item *
+_conf_item_get(const char *id)
+{
+    Config_Item *ci;
+
+    ci = E_NEW(Config_Item, 1);
+    ci->id = eina_stringshare_add(id);
+    skeletor_config->items = eina_list_append(skeletor_config->items, ci);
+    e_config_save_queue();
+
+    return ci;
+}
+
+/* This is needed to advertise a label for the module IN the code (not just
+ * the .desktop file) but more specifically the api version it was compiled
+ * for so E can skip modules that are compiled for an incorrect API version
+ * safely) */
+EAPI E_Module_Api e_modapi =
+{
+   E_MODULE_API_VERSION,
+   "Skeletor"
+};
 
 /*
- * Module Functions
+ * This is the first function called by e17 when you click the enable button
  */
-
-/* Function called when the module is initialized */
 EAPI void *
 e_modapi_init(E_Module *m)
 {
-   char buf[4096];
+    /* Note-to-self, if you add a catagory, and you did not add any item
+     * to it , IT WILL NOT BE DISPLAYED!!! */
+    //e_configure_registry_category_add("elive", 32, "Elive", NULL,
+    //        NULL);
 
-   /* Location of message catalogs for localization */
-   snprintf(buf, sizeof(buf), "%s/locale", e_module_dir_get(m));
-   bindtextdomain(PACKAGE, buf);
-   bind_textdomain_codeset(PACKAGE, "UTF-8");
-
-   /* Location of theme to load for this module */
-   snprintf(buf, sizeof(buf), "%s/e-module-HOHO.edj", m->dir);
+    e_configure_registry_item_add("preferences/skeletor", 10,
+            "Skeletor Configuration", NULL,
+            "preferences-system-screen-resolution",e_int_config_skeletor_module);
 
 
-   /* Display this Modules config info in the main Config Panel */
+    conf_item_edd = E_CONFIG_DD_NEW("Config_Item", Config_Item);
+#undef T
+#undef D
+#define T Config_Item
+#define D conf_item_edd
+    E_CONFIG_VAL(D, T, id, STR);
 
-   /* starts with a category, create it if not already exists */
-   e_configure_registry_category_add("features", 80, D_("Features"),
-                                     NULL, "preferences-applications-add");
-   /* add right-side item */
-   e_configure_registry_item_add("features/HOHO", 110, D_("HOHOHO"),
-                                 NULL, buf, _HOHO_configure);
+    conf_edd = E_CONFIG_DD_NEW("Config", Config);
+#undef T
+#undef D
+#define T Config
+#define D conf_edd
+    E_CONFIG_LIST(D, T, items, conf_item_edd);
+    E_CONFIG_VAL(D, T, set, INT);
 
-   conf_edd = E_CONFIG_DD_NEW("Config", Config);
-   #undef T
-   #undef D
-   #define T Config
-   #define D conf_edd
-   E_CONFIG_VAL(D, T, version, INT);
-   E_CONFIG_VAL(D, T, enabled, UCHAR); /* our var from header */
+    skeletor_config = e_config_domain_load("module.skeletor", conf_edd);
 
-   /* Tell E to find any existing module data. First run ? */
-   HOHO_conf = e_config_domain_load("module.HOHO", conf_edd);
-   if (HOHO_conf)
-     {
-        /* Check config version */
-        if ((HOHO_conf->version >> 16) < MOD_CONFIG_FILE_EPOCH)
-          {
-             /* config too old */
-             _HOHO_conf_free();
-	     ecore_timer_add(1.0, _HOHO_conf_timer,
-			     "HOHO Module Configuration data needed "
-			     "upgrading. Your old configuration<br> has been"
-			     " wiped and a new set of defaults initialized. "
-			     "This<br>will happen regularly during "
-			     "development, so don't report a<br>bug. "
-			     "This simply means the module needs "
-			     "new configuration<br>data by default for "
-			     "usable functionality that your old<br>"
-			     "configuration simply lacks. This new set of "
-			     "defaults will fix<br>that by adding it in. "
-			     "You can re-configure things now to your<br>"
-			     "liking. Sorry for the inconvenience.<br>");
-          }
 
-        /* Ardvarks */
-        else if (HOHO_conf->version > MOD_CONFIG_FILE_VERSION)
-          {
-             /* config too new...wtf ? */
-             _HOHO_conf_free();
-	     ecore_timer_add(1.0, _HOHO_conf_timer,
-			     "Your HOHO Module configuration is NEWER "
-			     "than the module version. This is "
-			     "very<br>strange. This should not happen unless"
-			     " you downgraded<br>the module or "
-			     "copied the configuration from a place where"
-			     "<br>a newer version of the module "
-			     "was running. This is bad and<br>as a "
-			     "precaution your configuration has been now "
-			     "restored to<br>defaults. Sorry for the "
-			     "inconvenience.<br>");
-          }
-     }
+    if(!skeletor_config)
+        skeletor_config = E_NEW(Config, 1);
+    
+    skeletor_config->module = m;
+    e_module_delayed_set(m, 1);
 
-   /* if we don't have a config yet, or it got erased above,
-    * then create a default one */
-   if (!HOHO_conf) _HOHO_conf_new();
-
-   /* create a link from the modules config to the module
-    * this is not written */
-   HOHO_conf->module = m;
-
-   // Run the launcher at everytime we start e17
-   //if (HOHO_conf->enabled == 1)
-   //   ecore_timer_add(0, _HOHO_exec, NULL);
-
-   /* Give E the module */
-   return m;
+    return m;
 }
 
 /*
- * Function to unload the module
+ * This function is called by e17 when you disable the module, in e_modapi_shutdown
+ * you should try to free all resources used while the module was enabled.
  */
 EAPI int
-e_modapi_shutdown(E_Module *m)
+e_modapi_shutdown(E_Module *m __UNUSED__)
 {
-   /* Unregister the config dialog from the main panel */
-   e_configure_registry_item_del("features/HOHO");
+    Config_Item *ci;
+    
+    while((skeletor_config->cfd = e_config_dialog_get("E", "preferences/skeletor")))
+        e_object_del(E_OBJECT(skeletor_config->cfd));
 
-   /* Remove the config panel category if we can. E will tell us.
-    category stays if other items using it */
-   e_configure_registry_category_del("features");
+    e_configure_registry_item_del("preferences/skeletor");
 
-   /* Terminate external process if any */
-   //char stopper[4096];
-   //snprintf(stopper, sizeof(stopper), "%s/scripts/launcher.sh terminate", HOHO_conf->module->dir);
-   //ecore_exe_run(stopper, NULL);
+    if(skeletor_config->cfd)
+        e_object_del(E_OBJECT(skeletor_config->cfd));
+    E_FREE(skeletor_config->cfd);
 
-   /* Tell E the module is now unloaded. Gets removed from shelves, etc. */
-   HOHO_conf->module = NULL;
+    if(skeletor_config)
+    {
+        EINA_LIST_FREE(skeletor_config->items, ci)
+        {
+            eina_stringshare_del(ci->id);
+            free(ci);
+        }
+        skeletor_config->module = NULL;
+        E_FREE(skeletor_config);
+    }
+    E_CONFIG_DD_FREE(conf_edd);
+    E_CONFIG_DD_FREE(conf_item_edd);
 
-   /* Cleanup the main config structure */
-   E_FREE(HOHO_conf);
-
-   /* Clean EET */
-   E_CONFIG_DD_FREE(conf_edd);
-   return 1;
+    return 1;
 }
 
 /*
- * Function to Save the modules config
+ * e_modapi_save is used to save and store configuration info on local
+ * storage
  */
 EAPI int
-e_modapi_save(E_Module *m)
+e_modapi_save(E_Module *m __UNUSED__)
 {
-   e_config_domain_save("module.HOHO", conf_edd, HOHO_conf);
-   return 1;
+    e_config_domain_save("module.skeletor", conf_edd, skeletor_config);
+    return 1;
 }
 
-/* Local Functions */
-/* new module needs a new config :), or config too old and we need one anyway */
-static void
-_HOHO_conf_new(void)
-{
-   char buf[128];
-
-   HOHO_conf = E_NEW(Config, 1);
-   HOHO_conf->version = (MOD_CONFIG_FILE_EPOCH << 16);
-
-#define IFMODCFG(v) if ((HOHO_conf->version & 0xffff) < v) {
-#define IFMODCFGEND }
-
-   /* setup defaults */
-   IFMODCFG(0x008d);
-   HOHO_conf->enabled = 1;
-   IFMODCFGEND;
-
-   /* update the version */
-   HOHO_conf->version = MOD_CONFIG_FILE_VERSION;
-
-   /* setup limits on the config properties here (if needed) */
-
-   /* save the config to disk */
-   e_config_save_queue();
-}
-
-/* This is called when we need to cleanup the actual configuration,
- * for example when our configuration is too old */
-static void
-_HOHO_conf_free(void)
-{
-   E_FREE(HOHO_conf);
-}
-
-/* timer for the config oops dialog (old configuration needs update) */
-static Eina_Bool
-_HOHO_conf_timer(void *data)
-{
-   e_util_dialog_internal( D_("HOHOHO Configuration Updated"), data);
-   return EINA_FALSE;
-}
-
-/* Launcher Configure */
-static Eina_Bool
-_HOHO_configure(void)
-{
-   char launcher[4096];
-
-   snprintf(launcher, sizeof(launcher), "%s/scripts/launcher.sh conf", HOHO_conf->module->dir);
-
-   ecore_exe_run(launcher, NULL);
-
-   return ECORE_CALLBACK_CANCEL; // 0
-}
+/**/
+/***************************************************************************/
 
