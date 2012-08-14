@@ -17,7 +17,7 @@ configure
 configure.ac.orig
 depcomp
 e-module-skel.edj
-e_modules-skel.spec
+e_modules-skeletor.spec
 install-sh
 libtool
 ltmain.sh

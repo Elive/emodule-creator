@@ -31,6 +31,6 @@ skeletor.edj: Makefile skeletor.edc  images/gadcon_logo.png
 	$(EDJE_CC) $(EDJE_FLAGS) $< $@
 
 clean-local:
-	 rm -rf *.edj module.desktop e_modules-skel.spec *~
+	 rm -rf *.edj module.desktop e_modules-skeletor.spec *~
 uninstall:
 	 rm -rf $(DESTDIR)$(datadir)

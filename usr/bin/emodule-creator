@@ -48,6 +48,7 @@ do
    mv $file $(echo $file | sed "s/skeletor/$modulename/g" )
 done
 
+Modulename=`echo ${modulename~}`
 find . -name .git -prune -o -type f | xargs sed -i "s/Skeletor/$Modulename/g"
 find . -name .git -prune -o -type f | xargs sed -i "s/skeletor/$modulename/g"
 
