@@ -51,7 +51,7 @@ _basic_create_widgets(E_Config_Dialog *cfd __UNUSED__, Evas *evas, E_Config_Dial
    o = e_widget_list_add(evas, 0, 0);
 
    of = e_widget_framelist_add(evas, "General Settings", 0);
-   ob = e_widget_check_add(evas, "First setting to save", &(cfdata->set));
+   ob = e_widget_check_add(evas, _("Should launcher.sh autodetect?"), &(cfdata->set));
 
    cfdata->obj = ob;
    e_widget_on_change_hook_set(ob, _cb_first_setting_change, cfdata);
