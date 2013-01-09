@@ -11,11 +11,10 @@ AC_CANONICAL_HOST
 AC_ISC_POSIX
 
 AM_INIT_AUTOMAKE(1.8)
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADER(config.h)
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_PROG_CC
-AM_PROG_CC_STDC
 AC_HEADER_STDC
 AC_C_CONST
 AC_C___ATTRIBUTE__
@@ -55,20 +54,9 @@ AC_DEFINE_UNQUOTED(MODULE_ARCH, "$MODULE_ARCH", "Module architecture")
 
 # Find edje_cc
 PKG_CHECK_MODULES(E, [
-    eina >= 1.6.99
-    evas >= 1.6.99
-    ecore >= 1.6.99
-    edje >= 1.6.99
-    edbus >= 1.6.99
-    enlightenment >= 0.16.999
+    enlightenment >= 0.17.0
 ])
-requirements_e="\
-eina >= 1.6.99 \
-evas >= 1.6.99 \
-ecore >= 1.6.99 \
-edje >= 1.6.99 \
-edbus >= 1.6.99 \
-enlightenment >= 0.16.999"
+requirements_e="enlightenment >= 0.17.0"
 
 
 AC_ARG_WITH(edje-cc,
